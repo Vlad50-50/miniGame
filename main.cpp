@@ -3,6 +3,7 @@
 #include <iostream>
 #include <vector>
 #include <ctime>
+#include <cmath>
 
 #define TILE_TEXTURE_NAME "assets/tile.png"
 #define PLAYER_TEXTURE_FRONT  "assets/idle_front.png"
@@ -64,7 +65,12 @@ int randInt(int min, int max);
 SDL_Rect escape_cuadro = {0, 0, SCREEN_SIZE[0], SCREEN_SIZE[1]};
 
 void GameOver() {
-	cout << "\n !GAME OVER! \n" << "COLLECTED GOALS: " << score << endl << "FIREBALLS BYPASSED: " << fireballs_bypassed << endl;
+	cout << "\n !GAME OVER! \n" 
+		 << "COLLECTED GOALS: " << score << endl 
+		 << "FIREBALLS BYPASSED: " << fireballs_bypassed << endl; 
+		 
+	if (fireballs_bypassed > 0) cout<< "VICTORY COEFFICIENT: " << round(((float)score / (float)fireballs_bypassed) * 100) / 100 << endl;
+	else cout << "VICTORY COEFFICIENT: 0\n";
 }
 
 bool Init() {
@@ -93,6 +99,9 @@ bool Init() {
 		cout << "Error with create render\n";
 	}
 
+	SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
+	SDL_SetRenderDrawColor(ren, 0, 0, 0, 128);
+	
 	tileTexture = IMG_LoadTexture(ren, TILE_TEXTURE_NAME);	
 	
 	playerIdleFront = IMG_LoadTexture(ren, PLAYER_TEXTURE_FRONT);
@@ -219,7 +228,6 @@ int main (void) {
 				}
 			}
 			SDL_RenderCopy(ren, fireball.texture, NULL, &fireball.posSize);
-
 		}
 		
 		if (SDL_HasIntersection(&goal.posSize, &player.posSize)) {
@@ -229,9 +237,13 @@ int main (void) {
 		}
 		SDL_RenderCopy(ren, goal.texture, NULL, &goal.posSize);
 		
-		//SDL_RenderFillRect(ren, &player.posSize);
+		if (isEscaped) {
+			SDL_RenderCopy(ren, NULL, NULL, &escape_cuadro);
+			SDL_RenderFillRect(ren, &escape_cuadro);
+		}		
+
 		SDL_RenderPresent(ren);
-	
+		SDL_RenderClear(ren);
 		SDL_Delay(50);
 	}	
 	GameOver();
