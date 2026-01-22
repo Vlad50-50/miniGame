@@ -5,6 +5,13 @@
 #include <ctime>
 
 #define TILE_TEXTURE_NAME "assets/tile.png"
+#define PLAYER_TEXTURE_FRONT  "assets/idle_front.png"
+#define PLAYER_TEXTURE_BACK  "assets/idle_back.png"
+#define PLAYER_TEXTURE_RIGHT "assets/idle_right.png"
+#define PLAYER_TEXTURE_LEFT  "assets/idle_left.png"
+#define FIREBALL_TEXTURE_NAME "assets/fireball.png"
+#define GREEN_BEAD_TEXTURE_NAME "assets/green-bead.png"
+
 #define FIREBALLS_COUNT 3
 
 using namespace std;
@@ -44,8 +51,17 @@ const int
 	TILE_MAP_SIZE = 25;
 const int SCREEN_SIZE[2] = {800, 600};
 
+//Vectors
 vector<Tile> tile_map;
+vector<Sprite> fireballs;
+
+//Stats
 short unsigned int score, fireballs_bypassed; 
+
+//Advertisment
+int randInt(int min, int max);
+
+SDL_Rect escape_cuadro = {0, 0, SCREEN_SIZE[0], SCREEN_SIZE[1]};
 
 void GameOver() {
 	cout << "\n !GAME OVER! \n" << "COLLECTED GOALS: " << score << endl << "FIREBALLS BYPASSED: " << fireballs_bypassed << endl;
@@ -56,21 +72,36 @@ bool Init() {
 
 	bool isAllRight = true;
 
-	SDL_Init(SDL_INIT_VIDEO);
-	IMG_Init(IMG_INIT_PNG);
+	if (SDL_Init(SDL_INIT_VIDEO) > 0) {
+		cout << "Error with Init video: " << SDL_GetError() << endl;
+		isAllRight = false;
+	}
+	if ((IMG_Init(IMG_INIT_PNG) & IMG_INIT_PNG) != IMG_INIT_PNG) {
+		cout << "Error with Init IMG: " << IMG_GetError() << endl;
+		isAllRight = false;
+	}
 
 	win = SDL_CreateWindow("Events", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_SIZE[0], SCREEN_SIZE[1], SDL_WINDOW_SHOWN);
 	ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	
+	if (win == NULL) {
+		isAllRight = false;
+		cout << "Error with create window\n";
+	}
+	if (ren == NULL) {
+		isAllRight = false;
+		cout << "Error with create render\n";
+	}
 
 	tileTexture = IMG_LoadTexture(ren, TILE_TEXTURE_NAME);	
 	
-	playerIdleFront = IMG_LoadTexture(ren, "assets/idle_front.png");
-	playerIdleBack = IMG_LoadTexture(ren, "assets/idle_back.png");
-	playerIdleLeft = IMG_LoadTexture(ren, "assets/idle_left.png");
-	playerIdleRight = IMG_LoadTexture(ren, "assets/idle_right.png");
+	playerIdleFront = IMG_LoadTexture(ren, PLAYER_TEXTURE_FRONT);
+	playerIdleBack = IMG_LoadTexture(ren,  PLAYER_TEXTURE_BACK);
+	playerIdleLeft = IMG_LoadTexture(ren,  PLAYER_TEXTURE_LEFT);
+	playerIdleRight = IMG_LoadTexture(ren, PLAYER_TEXTURE_RIGHT);
 
-	fireballTexture = IMG_LoadTexture(ren, "assets/fireball.png");
-	goalTexture = IMG_LoadTexture(ren, "assets/green-bead.png");
+	fireballTexture = IMG_LoadTexture(ren, FIREBALL_TEXTURE_NAME);
+	goalTexture = IMG_LoadTexture(ren, GREEN_BEAD_TEXTURE_NAME);
 
 	for (int y = 0; y < TILE_MAP_SIZE; y++) {
     	for (int x = 0; x < TILE_MAP_SIZE; x++) {
@@ -82,8 +113,15 @@ bool Init() {
         	tile_map.push_back(t);
     	}
 	}
-	
 
+	for (int i = 0; i < FIREBALLS_COUNT; ++i) {
+		Sprite fireball;
+		
+		fireball.posSize = {-50, randInt(0, SCREEN_SIZE[1]-50), 50, 50 };
+		fireball.texture = fireballTexture;
+		fireball.type = ENEMY;
+		fireballs.push_back(fireball);
+	}
 	return isAllRight;
 }
 
@@ -102,9 +140,15 @@ int randInt(int min, int max) {
 }
 
 int main (void) {
-	Init();
+	if (!Init()) {
+		cout << "Find some Errors\n";
+		return 1;
+	}
 
-	bool isDone = false;
+	bool 
+		isDone = false,
+		isEscaped = false;
+
 	SDL_Event event;
 	int speed = 8;
 
@@ -113,77 +157,72 @@ int main (void) {
 	player.texture = playerIdleFront;
 	player.type = PLAYER;
 
-	Sprite fireballs[FIREBALLS_COUNT];
-	
-	for (int i = 0; i < FIREBALLS_COUNT; ++i) {
-		fireballs[i].posSize = {-50, randInt(0, SCREEN_SIZE[1]-50), 50, 50 };
-		fireballs[i].texture = fireballTexture;
-		fireballs[i].type = ENEMY;
-	}
-
 	Sprite goal;
 	goal.posSize = { randInt(0, SCREEN_SIZE[0]-25) , randInt(0, SCREEN_SIZE[1]-25), 25, 25};
 	goal.texture = goalTexture;
 	goal.type = GOAL;
-
-	SDL_SetRenderDrawColor(ren, 0, 0, 0, 255);
 
 	while (!isDone) {
 		while(SDL_PollEvent(&event)) {
 			if (event.type == SDL_QUIT) {
 				isDone = true;
 			}
+			if (event.type == SDL_KEYDOWN) {
+				if (event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+					isEscaped = !(isEscaped);
+				}
+			}
 		}
 	
-		const Uint8* keys = SDL_GetKeyboardState(NULL);
+		const Uint8* keys = SDL_GetKeyboardState(NULL);	
 		
-		if (keys[SDL_SCANCODE_W]) {
+		if (keys[SDL_SCANCODE_W] && !(isEscaped)) {
 			player.texture = playerIdleBack;
 			if ( player.posSize.y-speed > 0 )
 			player.posSize.y -= speed;
 		} 
 		
-		if (keys[SDL_SCANCODE_S]) {
+		if (keys[SDL_SCANCODE_S] && !(isEscaped)) {
 		 	player.texture = playerIdleFront;
 			if (player.posSize.y+speed < 600-player.posSize.h)
 			player.posSize.y += speed;
 		}		
 
-		if (keys[SDL_SCANCODE_A]) { 
+		if (keys[SDL_SCANCODE_A] && !(isEscaped) ) { 
 			player.texture = playerIdleLeft;
 			if (player.posSize.x-speed > 0)
 			player.posSize.x -= speed;
 		}
 
-		if (keys[SDL_SCANCODE_D]) {
+		if (keys[SDL_SCANCODE_D] && !(isEscaped) ) {
 			player.texture = playerIdleRight;
  			if (player.posSize.x+speed < 800-player.posSize.w)
 			player.posSize.x += speed;
 		}
-		
+
 		for (auto& t : tile_map) {
     		SDL_RenderCopy(ren, tileTexture, &t.src, &t.dst);
 		}	
 	
 		SDL_RenderCopy(ren, player.texture, NULL, &player.posSize);	
 		
-		for (int i = 0; i < FIREBALLS_COUNT; ++i) {	
-			fireballs[i].posSize.x += speed + (rand() % 5);
-			SDL_RenderCopy(ren, fireballs[i].texture, NULL, &fireballs[i].posSize);
-			if (fireballs[i].posSize.x > 800+fireballs[i].posSize.w) {
-				fireballs[i].posSize = {-50, randInt(0, SCREEN_SIZE[1]-50), 50, 50};
-				fireballs_bypassed++;
-			}
-		}
-
-		for (int i = 0; i < FIREBALLS_COUNT; ++i) {
-			if (SDL_HasIntersection(&fireballs[i].posSize, &player.posSize)) {
+		for (auto& fireball : fireballs) {
+			if (SDL_HasIntersection(&fireball.posSize, &player.posSize)) {
 				isDone = true;
 			}
+			
+			if (!isEscaped) {
+				fireball.posSize.x += speed + (rand() % 5);
+				if (fireball.posSize.x > 800+fireball.posSize.w) {
+					fireball.posSize = {-50, randInt(0, SCREEN_SIZE[1]-50), 50, 50};
+					fireballs_bypassed++;
+				}
+			}
+			SDL_RenderCopy(ren, fireball.texture, NULL, &fireball.posSize);
+
 		}
 		
 		if (SDL_HasIntersection(&goal.posSize, &player.posSize)) {
-			cout << "You recive goal\n";
 			score++;
 			goal.posSize.x = randInt(0, SCREEN_SIZE[0]-goal.posSize.w);
 			goal.posSize.y = randInt(0, SCREEN_SIZE[1]-goal.posSize.h);
