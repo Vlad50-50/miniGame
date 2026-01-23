@@ -45,6 +45,11 @@ const int SCREEN_SIZE[2] = {800, 600};
 
 short unsigned int score, fireballs_bypassed; 
 
+bool 
+	isDone = false,
+	isPaused = false,
+	isGameOver = false;
+
 //Vectors
 vector<Tile> tile_map;
 vector<Sprite> fireballs;
@@ -54,6 +59,7 @@ int randInt(int min, int max);
 bool Init();
 void GameOver();
 void renderText(const char* msg, SDL_Rect dst);
+void renderMenu();
 
 SDL_Window *win = NULL;
 SDL_Renderer *ren = NULL;
@@ -80,10 +86,6 @@ int main (void) {
 		return 1;
 	}
 
-	bool 
-		isDone = false,
-		isPaused = false;
-
 	SDL_Event event;
 	int speed = 8;
 
@@ -103,12 +105,16 @@ int main (void) {
 				isDone = true;
 			}
 			if (event.type == SDL_KEYDOWN) {
-				if (event.key.keysym.scancode == SDL_SCANCODE_ESCAPE) {
+				if (event.key.keysym.scancode == SDL_SCANCODE_ESCAPE && !(isGameOver)) {
 					isPaused = !(isPaused);
 				}
 			}
 		}
 	
+		if (isGameOver && !isPaused) {
+			isPaused = true;
+		}
+
 		const Uint8* keys = SDL_GetKeyboardState(NULL);	
 		
 		if (keys[SDL_SCANCODE_W] && !(isPaused)) {
@@ -143,7 +149,7 @@ int main (void) {
 		
 		for (auto& fireball : fireballs) {
 			if (SDL_HasIntersection(&fireball.posSize, &player.posSize)) {
-				isDone = true;
+				isGameOver = true;
 			}
 			
 			if (!isPaused) {
@@ -163,13 +169,7 @@ int main (void) {
 		}
 		SDL_RenderCopy(ren, goal.texture, NULL, &goal.posSize);
 		
-		if (isPaused) {
-			SDL_RenderCopy(ren, NULL, NULL, &escape_cuadro);
-			SDL_RenderFillRect(ren, &escape_cuadro);
-		}		
-		
-		string score_text = to_string(score);
-		renderText(score_text.c_str(), {24, 24, 0, 0});
+		if (isPaused) renderMenu();
 
 		SDL_RenderPresent(ren);
 		SDL_RenderClear(ren);
@@ -187,12 +187,31 @@ int main (void) {
 	return 0;
 }
 
+void renderMenu() {
+		string score_text = to_string(score);
+
+		SDL_RenderCopy(ren, NULL, NULL, &escape_cuadro);
+		SDL_RenderFillRect(ren, &escape_cuadro);
+		
+		string collected_goals_text = "COLLECTED GOALS: " + score_text; 
+		string fireballs_bypassed_text = "FIREBALLS BYPASSED: " + to_string(fireballs_bypassed);
+		string victory_coeficient_text = "VICTORY COEFFICIENT: "; 
+
+		if (score != 0) victory_coeficient_text += to_string(round(((float)fireballs_bypassed / (float)score)));
+		else victory_coeficient_text += "0";
+			
+		renderText(collected_goals_text.c_str(), 	{25, 100, 0, 0}); 
+		renderText(fireballs_bypassed_text.c_str(), {25, 150, 0, 0});
+		renderText(victory_coeficient_text.c_str(), {25, 200, 0, 0});
+		
+}
+
 void GameOver() {
 	cout << "\n !GAME OVER! \n" 
 		 << "COLLECTED GOALS: " << score << endl 
 		 << "FIREBALLS BYPASSED: " << fireballs_bypassed << endl; 
 		 
-	if (score > 0) cout<< "VICTORY COEFFICIENT: " << round(((float)fireballs_bypassed / (float)score) * 100) / 100 << endl;
+	if (score > 0) cout<< "VICTORY COEFFICIENT: " << round(((float)fireballs_bypassed / (float)score)) << endl;
 	else cout << "VICTORY COEFFICIENT: 0\n";
 }
 
